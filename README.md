@@ -29,7 +29,7 @@ This repository contains the game project under the `4dPacMan/` directory.
 │   │   ├── levels.ts
 │   │   ├── main.ts
 │   │   ├── obstacles.ts
-│   │   ���── rot4.ts
+│   │   ├── rot4.ts
 │   │   ├── space.ts
 │   │   ├── style.css
 │   │   └── view.ts
@@ -50,6 +50,15 @@ npm run dev
 ```
 
 Then open the local URL reported by Vite in your browser.
+
+Typical local output:
+
+```text
+➜  Local:   http://localhost:5173/
+➜  Network: http://192.168.4.243:5173/  WLAN
+```
+
+This means the game is available locally at `http://localhost:5173/` and also on the LAN at the displayed network address.
 
 ## Production build
 

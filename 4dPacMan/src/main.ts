@@ -32,6 +32,7 @@ $('#ui').innerHTML = `
     <div class="toggles">
       <button class="pill toggle" id="tg-drag" aria-pressed="false"><i></i>拖动 = 4D 旋转</button>
       <button class="pill toggle" id="tg-spin" aria-pressed="false"><i></i>自动 4D 旋转</button>
+      <button class="pill toggle" id="tg-center" aria-pressed="false" title="白球固定在中心，移动时世界随之移动 (C)"><i></i>玩家第一人称视角</button>
       <div class="seg" role="radiogroup" aria-label="导引线">
         <span>导引线</span>
         <button class="seg-btn" data-guide="off" role="radio" aria-checked="false">关</button>
@@ -268,6 +269,7 @@ function intro(): void {
         <li><b>穿过你的四条彩色线</b>就是四个方向，线的两端标着该按哪个${kb ? '键' : '按钮'}（可在右侧面板隐藏）。</li>
         <li><b>虚线导引</b>指向最近的目标：每段的颜色是要走的方向，长度是要走的距离。</li>
         <li>${kb ? '左键拖动' : '单指拖动'}自由旋转镜头；${kb ? '<b>右键拖动</b>（或 Shift+拖动）' : '打开「拖动 = 4D 旋转」后拖动'}会在四维里旋转整个空间。</li>
+        <li>打开右侧「玩家第一人称视角」${kb ? '（<kbd>C</kbd>）' : ''}，白球固定在画面中心，移动时目标和障碍物会反向移动。</li>
         <li>两个小球在画面上重合，不代表它们在同一位置——转一转第四维就知道了。</li>
       </ul>
       <button class="btn primary" id="ov-start">${fromSelect ? '返回关卡' : round.moves ? '继续' : '开始'}</button>
@@ -372,6 +374,8 @@ window.addEventListener('keydown', e => {
       return setGuide(view.showGuide ? (view.guideMode === 'near' ? 'always' : 'off') : 'near')
     case 'KeyT':
       return toggle('spin')
+    case 'KeyC':
+      return toggle('center')
     case 'KeyK':
       return toggle('labels')
     case 'Enter':
@@ -416,11 +420,12 @@ function setGuide(m: GuideMode): void {
 }
 document.querySelectorAll<HTMLButtonElement>('[data-guide]').forEach(b => (b.onclick = () => setGuide(b.dataset.guide as GuideMode)))
 
-function toggle(which: 'drag' | 'spin' | 'labels'): void {
+function toggle(which: 'drag' | 'spin' | 'center' | 'labels'): void {
   const el = $(`#tg-${which}`)
   let on: boolean
   if (which === 'drag') on = view.drag4D = !view.drag4D
   else if (which === 'spin') on = view.autoSpin = !view.autoSpin
+  else if (which === 'center') on = view.centered = !view.centered
   else on = view.showLabels = !view.showLabels
   el.classList.toggle('on', on)
   el.setAttribute('aria-pressed', String(on))
@@ -429,6 +434,7 @@ function toggle(which: 'drag' | 'spin' | 'labels'): void {
 }
 $('#tg-drag').onclick = () => toggle('drag')
 $('#tg-spin').onclick = () => toggle('spin')
+$('#tg-center').onclick = () => toggle('center')
 $('#tg-labels').onclick = () => toggle('labels')
 $('#btn-cam').onclick = () => view.resetCamera()
 // Label distance slider (persisted).

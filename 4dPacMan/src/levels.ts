@@ -98,18 +98,18 @@ export const LEVELS: Level[] = [
     obstacles: [klein([0, 0, 0, 0], 8, 3, 1.2)],
     where: p => Math.hypot(p[0], p[1]) >= 13,
     minApart: 8,
-  }, false),
+  }),
   lv(3, 2, '无内无外', '你从瓶管内部出发：目标有的在管内，有的在管外。', 4, 1302, {
     extent: 20,
     obstacles: [klein([0, 0, 0, 0], 9, 3.5, 1.2), tesseract([0, 0, 0, 12], 3)],
     where: p => coreDist(p, 9) < 1.6 || Math.hypot(p[0], p[1]) >= 16,
     minFromStart: 12,
     minApart: 10,
-  }, false, [9, 0, 0, 0]),
+  }, true, [9, 0, 0, 0]),
   lv(3, 3, '穿瓶而过', '最终关卡：两个交错的克莱因瓶、一堵 W 墙和散落的方块。', 5, 1303, {
     extent: 24,
     obstacles: [
-      klein([-8, 0, 0, 0], 10, 3.5, 1.3, axisRotation(1, 3, Math.PI / 3)),
+      klein([-9, 0, 0, 0], 10, 3.5, 1.3, axisRotation(1, 3, Math.PI / 3)),
       klein([10, 4, 0, -4], 7, 3, 1.3, mul(axisRotation(0, 2, Math.PI / 2), axisRotation(2, 3, 0.5))),
       ...wallWithHole(3, 15, 16, [-20, -20, 18, 0], [-18, -18, 20, 0], 24),
       tesseract([0, 14, 0, 0], 3),
@@ -118,7 +118,7 @@ export const LEVELS: Level[] = [
     ],
     where: p => Math.max(...p.map(Math.abs)) >= 12,
     minApart: 12,
-  }, false),
+  }),
 ]
 
 /** Distance from p to the core circle (radius R in the X–Y plane) of an unrotated, centred Klein bottle. */

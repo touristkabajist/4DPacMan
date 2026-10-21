@@ -54,7 +54,8 @@ describe('levels', () => {
     for (const l of LEVELS.filter(l => l.chapter === 1)) recordFinish(p, l.id, 1)
     expect(isUnlocked(p, '2-1')).toBe(true)
     expect(currentLevel(p).id).toBe('2-1')
-    expect(isUnlocked(p, '3-1', true)).toBe(false)
+    expect(isUnlocked(p, '3-1')).toBe(false)
+    expect(isUnlocked(p, '3-1', true)).toBe(true)
     for (const l of LEVELS.filter(l => l.ready)) recordFinish(p, l.id, 1)
     expect(currentLevel(p).id).toBe(LEVELS.filter(l => l.ready).pop()!.id)
   })
@@ -66,8 +67,9 @@ describe('levels', () => {
       const free = new Round(l.seed, l.targets, l.start, { ...l.opts, obstacles: [] })
       // Same targets would give the Manhattan tour; with obstacles it must be strictly longer.
       const manhattanTour = optimalTour(l.start, r.targets)
-      // Open block fields can still allow an obstacle-free staircase; walls/single blockers must not.
-      if (l.id === '2-3') expect(r.optimal, l.id).toBeGreaterThanOrEqual(manhattanTour)
+      // Open block fields and codimension-2 Klein surfaces can still allow an obstacle-free staircase;
+      // walls/single blockers must not.
+      if (l.id === '2-3' || CHAPTERS[l.chapter - 1].kind === 'klein') expect(r.optimal, l.id).toBeGreaterThanOrEqual(manhattanTour)
       else expect(r.optimal, l.id).toBeGreaterThan(manhattanTour)
       // Walking each target straight (X, then Y, Z, W) must run into an obstacle somewhere.
       const naive = new Round(l.seed, l.targets, l.start, l.opts)

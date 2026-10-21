@@ -9,6 +9,8 @@ This repository contains the game project under the `4dPacMan/` directory.
 - 4D spatial movement and camera controls
 - Multiple handcrafted levels and progression system
 - Obstacle-based navigation using 3D cross-sections of 4D shapes
+- Chapter 3: curved, thickened Klein bottle obstacles (now playable)
+- Player-centred view (玩家第一人称视角): the white ball stays in the centre and the world moves around it
 - Visual guide lines and distance indicators for target collection
 - Lightweight web build with Vite and TypeScript
 - Browser play with no backend required
@@ -80,7 +82,8 @@ The game includes keyboard and pointer controls:
 - Drag to rotate the camera
 - Right-drag or Shift+drag to rotate in 4D
 - Mouse wheel to zoom
-- Use the visible axis buttons or keyboard shortcuts shown in-game
+- Move along the four axes: `A`/`D` (X), `S`/`W` (Y), `Q`/`E` (Z), `F`/`R` (W), or use the on-screen axis buttons
+- `C` or the 玩家第一人称视角 switch in the right-hand panel toggles the player-centred view
 - Press the level/help buttons from the HUD to open the in-game menu
 
 ## Gameplay overview
@@ -103,6 +106,18 @@ npm run preview  # preview production build
 npm run typecheck
 npm run test     # run Vitest tests
 npm run shots    # generate screenshots via script
+```
+
+## Version history
+
+Earlier versions are kept as git tags, so they can always be checked out or compared:
+
+- `v1.0`: original upload (chapter 3 locked as "coming soon")
+- `main`: Klein bottle chapter unlocked, player-centred view added
+
+```bash
+git checkout v1.0       # look at the previous version
+git diff v1.0 main      # see what changed
 ```
 
 ## Notes

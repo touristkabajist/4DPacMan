@@ -57,6 +57,8 @@ export class View {
   /** When true, one-finger / left drag rotates in 4D instead of orbiting. */
   drag4D = false
   autoSpin = false
+  /** Player-centred view: the player stays at the centre and the world moves around it. */
+  centered = false
   showGuide = true
   /** 'near': the route line appears only within GUIDE_NEAR (Euclidean, lattice steps) of the target. */
   guideMode: 'near' | 'always' = 'near'
@@ -76,6 +78,9 @@ export class View {
   private pos: V4 = [0, 0, 0, 0]
   private prevPos: V4 = [0, 0, 0, 0]
   private moveT = 1
+  /** 0 → 1 blend into the player-centred view, and the lattice point drawn at the centre. */
+  private centerT = 0
+  private readonly origin = [0, 0, 0, 0]
   private bump: { axis: number; dir: number; t: number } | null = null
   private targets: V4[] = []
   private targetViews: TargetView[] = []
@@ -114,6 +119,7 @@ export class View {
   private readonly points: THREE.Points
   private readonly group = new THREE.Group()
   private readonly tmp = [0, 0, 0, 0]
+  private readonly rel = [0, 0, 0, 0]
   private readonly m4 = new THREE.Matrix4()
   private readonly v3 = new THREE.Vector3()
   private readonly glow = glowTexture()
@@ -405,9 +411,17 @@ export class View {
   }
 
   // ── Projection ───────────────────────────────────────────────────────
-  /** Lattice point → world position (x′, y′, z′); returns w′ in world units. */
+  /** Lattice point → world position (x′, y′, z′), relative to the view origin; returns w′ in world units. */
   private project(p: ArrayLike<number>, out = new THREE.Vector3()): number {
-    const v = apply(this.M, p, this.tmp)
+    const o = this.origin
+    const r = this.rel
+    for (let i = 0; i < 4; i += 1) r[i] = p[i] - o[i]
+    return this.projectDir(r, out)
+  }
+
+  /** Lattice direction → world direction (no origin shift); returns the w′ component. */
+  private projectDir(d: ArrayLike<number>, out = new THREE.Vector3()): number {
+    const v = apply(this.M, d, this.tmp)
     const u = this.unit
     out.set(v[0] * u, v[1] * u, v[2] * u)
     return v[3] * u
@@ -417,10 +431,10 @@ export class View {
     return THREE.MathUtils.clamp(1 + w * 0.09, 0.6, 1.4)
   }
 
-  displayPos(): V4 {
+  displayPos(withBump = true): V4 {
     const t = ease(this.moveT)
     const p = this.prevPos.map((v, i) => v + (this.pos[i] - v) * t) as V4
-    if (this.bump) p[this.bump.axis] += this.bump.dir * Math.sin(Math.PI * this.bump.t) * ((0.25 * this.ballS) / this.unit)
+    if (withBump && this.bump) p[this.bump.axis] += this.bump.dir * Math.sin(Math.PI * this.bump.t) * ((0.25 * this.ballS) / this.unit)
     return p
   }
 
@@ -458,6 +472,12 @@ export class View {
     } else if (this.autoSpin) {
       this.rotate4D(dt * 0.35, 0)
     }
+    // Player-centred view: draw everything relative to the player's gliding position (without the bump
+    // wobble, so a blocked move still nudges the ball itself rather than shaking the whole world).
+    this.centerT = THREE.MathUtils.clamp(this.centerT + (this.centered ? dt : -dt) / 0.4, 0, 1)
+    const k = ease(this.centerT)
+    const glide = this.displayPos(false)
+    for (let i = 0; i < 4; i += 1) this.origin[i] = glide[i] * k
 
     // Box
     const bp = this.box.geometry.getAttribute('position') as THREE.BufferAttribute
@@ -520,7 +540,7 @@ export class View {
       const e = [0, 0, 0, 0]
       e[a] = 1
       const dir = new THREE.Vector3()
-      this.project(e, dir)
+      this.projectDir(e, dir)
       const len = dir.length() / this.unit
       const dc = dir.clone().applyQuaternion(camInv)
       const onScreen = Math.hypot(dc.x, dc.y) / Math.max(dir.length(), 1e-9)
@@ -647,7 +667,8 @@ export class View {
 
     const n = [this.M[12], this.M[13], this.M[14], this.M[15]]
     const c = n[0] * dp[0] + n[1] * dp[1] + n[2] * dp[2] + n[3] * dp[3]
-    const key = Array.from(this.M, v => v.toFixed(4)).join(',') + '|' + dp.map(v => v.toFixed(3)).join(',')
+    // Slice meshes are baked in view space, so they're rebuilt whenever the view origin moves too.
+    const key = [...Array.from(this.M, v => v.toFixed(4)), '|', ...dp.map(v => v.toFixed(3)), '|', ...this.origin.map(v => v.toFixed(3))].join(',')
     const rebuild = key !== this.sliceKey
     this.sliceKey = key
     for (const ov of this.obstacleViews) {
@@ -726,7 +747,7 @@ export class View {
       const e = [0, 0, 0, 0]
       e[a] = 1
       const v = new THREE.Vector3()
-      this.project(e, v)
+      this.projectDir(e, v)
       v.divideScalar(this.unit).applyQuaternion(inv)
       return { a, v }
     })

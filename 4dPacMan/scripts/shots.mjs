@@ -48,7 +48,7 @@ await session('desktop', { viewport: { width: 1440, height: 900 } }, async page 
   await wait(1000)
   await page.screenshot({ path: 'shots/d1-intro.png' })
   await page.click('#ov-start')
-  await wait(600)
+  await page.waitForFunction(() => window.__game.view.moveT >= 1 && !window.__game.view.bump, null, { timeout: 8000 }).catch(() => {})
   await page.screenshot({ path: 'shots/d2-play.png' })
 
   // Free orbit: left-drag the camera.
@@ -89,7 +89,7 @@ await session('desktop', { viewport: { width: 1440, height: 900 } }, async page 
   await wait(900)
   await page.screenshot({ path: 'shots/d5d-zoom.png' })
   await page.click('#btn-cam')
-  await wait(600)
+  await page.waitForFunction(() => window.__game.view.moveT >= 1 && !window.__game.view.bump, null, { timeout: 8000 }).catch(() => {})
 
   const end = await playWithKeys(page)
   if (end.remaining !== 0) errors.push('keyboard play did not collect all targets: ' + JSON.stringify(end))
@@ -107,9 +107,9 @@ await session('levels', { viewport: { width: 1440, height: 900 } }, async page =
   await page.goto(URL)
   await wait(800)
   if ((await state(page)).mode !== 'select') errors.push('start page is not the level select')
-  // All ready levels selectable (temporary no-lock mode); unfinished chapters stay disabled.
+  // All ready levels selectable (temporary no-lock mode).
   const locked = await page.$$eval('.lvl.locked', els => els.map(e => e.dataset.level))
-  if (locked.some(id => id.startsWith('1-') || id.startsWith('2-')) || !locked.includes('3-1')) errors.push('unexpected locks: ' + locked)
+  if (locked.length) errors.push('unexpected locks: ' + locked)
   await page.screenshot({ path: 'shots/l0-start.png' })
   await page.click('[data-level="2-3"]')
   await wait(300)
@@ -187,7 +187,7 @@ await session('obstacles', { viewport: { width: 1440, height: 900 } }, async pag
   await wait(1200)
   if ((await state(page)).mode !== 'won') errors.push('2-1 win not reached')
 
-  for (const id of ['2-2', '2-3', '2-4', '2-5']) {
+  for (const id of ['2-2', '2-3', '2-4', '2-5', '3-1', '3-2', '3-3']) {
     await page.goto(URL + `?level=${id}&unlock&play`)
     await wait(1100)
     await page.screenshot({ path: `shots/o5-${id}.png` })
@@ -195,6 +195,40 @@ await session('obstacles', { viewport: { width: 1440, height: 900 } }, async pag
     if (e.remaining !== 0) errors.push(`${id} guide play failed: ` + JSON.stringify({ ...e, guide: undefined }))
     if (e.moves !== e.optimal && id === '2-1') errors.push(`${id}: guide not optimal`)
   }
+})
+
+// Player-centred view: the white ball stays at the centre, targets and obstacle slices move instead.
+await session('centered', { viewport: { width: 1440, height: 900 } }, async page => {
+  await page.goto(URL + '?level=3-2&unlock&play')
+  await wait(800)
+  const look = () => page.evaluate(() => {
+    const v = window.__game.view
+    const p = v.player.position
+    return { player: [p.x, p.y, p.z], target: v.targetViews[0].mesh.position.toArray(), slice: v.obstacleViews[0].mesh.count }
+  })
+  // Animations advance per frame (dt is clamped), so in slow headless rendering poll instead of sleeping.
+  const centred = on => page.waitForFunction(on => (Math.hypot(...window.__game.view.player.position.toArray()) < 1e-6) === on, on, { timeout: 8000 }).catch(() => {})
+  const off = await look()
+  await page.click('#tg-center')
+  await centred(true)
+  const on0 = await look()
+  if (Math.hypot(...on0.player) > 1e-6) errors.push('centred view: player not at the centre ' + on0.player)
+  if ((await page.getAttribute('#tg-center', 'aria-pressed')) !== 'true') errors.push('centred toggle not pressed')
+  await page.screenshot({ path: 'shots/c1-centered.png' })
+  for (const k of ['KeyE', 'KeyE', 'KeyR', 'KeyR', 'KeyD']) {
+    await page.keyboard.press(k)
+    await wait(40)
+  }
+  await page.waitForFunction(() => window.__game.view.moveT >= 1 && !window.__game.view.bump, null, { timeout: 8000 }).catch(() => {})
+  const on1 = await look()
+  if (Math.hypot(...on1.player) > 1e-6) errors.push('centred view: player drifted after moving ' + on1.player)
+  if (Math.hypot(...on1.target.map((v, i) => v - on0.target[i])) < 1e-3) errors.push('centred view: target did not move with the world')
+  if (!on1.slice) errors.push('centred view: Klein slice vanished')
+  await page.screenshot({ path: 'shots/c2-centered-moved.png' })
+  await page.keyboard.press('KeyC')
+  await centred(false)
+  const back = await look()
+  if (Math.hypot(...back.player) < 1e-3 && Math.hypot(...off.player) > 1e-3) errors.push('C did not turn the centred view off')
 })
 
 await session('mobile-levels', { ...devices['iPhone 13'] }, async page => {
@@ -210,7 +244,7 @@ await session('mobile', { ...devices['iPhone 13'] }, async page => {
   await wait(900)
   await page.screenshot({ path: 'shots/m1-intro.png' })
   await page.tap('#ov-start')
-  await wait(600)
+  await page.waitForFunction(() => window.__game.view.moveT >= 1 && !window.__game.view.bump, null, { timeout: 8000 }).catch(() => {})
   await page.screenshot({ path: 'shots/m2-play.png' })
   const s0 = await state(page)
   await page.tap('.pad-btn[data-axis="3"][data-dir="1"]')

@@ -87,6 +87,11 @@ The game includes keyboard and pointer controls:
 
 Each round places you in a 4D grid with glowing target points to collect. The key challenge is recognizing that objects may appear overlapped in 2D/3D projection while actually being separated in the fourth dimension. By rotating the scene and planning movement across the four axes, you can clear the level in as few moves as possible.
 
+### Klein Bottle
+
+<img width="1115" height="632" alt="image" src="https://github.com/user-attachments/assets/e950f237-14d0-4d84-8156-a598a8dea64f" />
+
+
 ## Scripts
 
 The project uses the following npm scripts:

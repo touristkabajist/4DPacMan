@@ -1,8 +1,8 @@
 import './style.css'
 import { Audio } from './audio'
-import type { Preset } from './rot4'
+import type { Mat4, Preset } from './rot4'
 import { CHAPTERS, LEVELS, currentLevel, levelOptimal, isUnlocked, levelById, loadProgress, nextLevel, recordFinish, saveProgress, stars, type Level } from './levels'
-import { AXIS_NAMES, Round, type MoveResult } from './space'
+import { AXIS_NAMES, Round, euclid4, type MoveResult } from './space'
 import { AXIS_COLORS, AXIS_KEYS, GUIDE_NEAR, View } from './view'
 
 type Mode = 'intro' | 'select' | 'playing' | 'won'
@@ -28,10 +28,15 @@ $('#ui').innerHTML = `
   </header>
   <aside class="viewpanel" aria-label="视图">
     <div class="vp-title">四维视角</div>
-    <div class="presets">${PRESETS.map(([p, t]) => `<button class="pill" data-preset="${p}">${t}</button>`).join('')}</div>
+    <div class="presets">${PRESETS.map(([p, t]) =>
+      p === 'oblique'
+        ? `<button class="pill" data-preset="${p}" title="四个方向都斜着显示 (1)">${t}</button>`
+        : `<button class="pill toggle" data-preset="${p}" aria-pressed="false" title="隐藏 ${p.slice(4)} 维度，只看其余三维 (${PRESETS.findIndex(q => q[0] === p) + 1})"><i></i>${t}</button>`,
+    ).join('')}</div>
     <div class="toggles">
       <button class="pill toggle" id="tg-drag" aria-pressed="false"><i></i>拖动 = 4D 旋转</button>
       <button class="pill toggle" id="tg-spin" aria-pressed="false"><i></i>自动 4D 旋转</button>
+      <button class="pill toggle" id="tg-dist" aria-pressed="false" title="在每个粉色目标旁显示它到白球的四维距离 (M)"><i></i>距离计算</button>
       <button class="pill toggle" id="tg-center" aria-pressed="false" title="白球固定在中心，移动时世界随之移动 (C)"><i></i>玩家第一人称视角</button>
       <div class="seg" role="radiogroup" aria-label="导引线">
         <span>导引线</span>
@@ -45,6 +50,7 @@ $('#ui').innerHTML = `
     </div>
   </aside>
   <canvas class="gizmo" id="gizmo" aria-hidden="true"></canvas>
+  <div class="dist-labels" id="dist-labels" aria-live="off"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <footer class="bottom">
     <div class="legend">
@@ -85,6 +91,7 @@ let level: Level | null = null
 let round = makeRound(null, 0)
 let method: 'keyboard' | 'touch' = matchMedia('(pointer: coarse)').matches ? 'touch' : 'keyboard'
 let muted = false
+let showDist = false
 
 function randomSeed(): number {
   return Math.floor(Math.random() * 1e9)
@@ -123,7 +130,47 @@ function refresh(): void {
   view.setNearest(round.nearest())
   view.setGuide(round.guidePath())
   view.setBlocked(round.blockedMask())
+  renderDist()
   renderDebug()
+}
+
+// ── Distance readout (距离计算) ──────────────────────────────────────────
+/**
+ * One label per uncollected target: the straight-line 4D distance √(Δx²+Δy²+Δz²+Δw²), the offset
+ * along each axis, and how many moves it really takes (around obstacles).
+ */
+function renderDist(): void {
+  const box = $('#dist-labels')
+  box.classList.toggle('open', showDist)
+  if (!showDist) return
+  const near = round.nearest()
+  box.innerHTML = round.targets
+    .map((t, i) => {
+      if (round.collected[i]) return ''
+      const d = euclid4(round.pos, t)
+      const steps = round.distTo(i)
+      const axes = t
+        .map((v, a) => {
+          const k = v - round.pos[a]
+          return `<i style="color:${AXIS_COLORS[a]}">${AXIS_NAMES[a]}${k > 0 ? '+' : k < 0 ? '−' : ''}${Math.abs(k)}</i>`
+        })
+        .join('')
+      return `<div class="dl ${i === near ? 'near' : ''}" data-i="${i}">
+        <b>${Number.isInteger(d) ? d : d.toFixed(2)}</b><span>${axes}</span><small>${Number.isFinite(steps) ? `${steps} 步` : '无法到达'}</small>
+      </div>`
+    })
+    .join('')
+  placeDist()
+}
+
+/** Keep each label just to the right of its pink ball (called every frame). */
+function placeDist(): void {
+  if (!showDist) return
+  document.querySelectorAll<HTMLElement>('#dist-labels .dl').forEach(el => {
+    const s = view.targetScreen(Number(el.dataset.i))
+    el.hidden = !s
+    if (s) el.style.transform = `translate(${Math.round(s.x + s.r + 8)}px, ${Math.round(s.y)}px) translateY(-50%)`
+  })
 }
 
 function move(axis: number, dir: number): void {
@@ -269,6 +316,7 @@ function intro(): void {
         <li><b>穿过你的四条彩色线</b>就是四个方向，线的两端标着该按哪个${kb ? '键' : '按钮'}（可在右侧面板隐藏）。</li>
         <li><b>虚线导引</b>指向最近的目标：每段的颜色是要走的方向，长度是要走的距离。</li>
         <li>${kb ? '左键拖动' : '单指拖动'}自由旋转镜头；${kb ? '<b>右键拖动</b>（或 Shift+拖动）' : '打开「拖动 = 4D 旋转」后拖动'}会在四维里旋转整个空间。</li>
+        <li>打开右侧「距离计算」${kb ? '（<kbd>M</kbd>）' : ''}，每个目标旁会显示它到你的四维直线距离 √(ΔX²+ΔY²+ΔZ²+ΔW²)、各方向相差几格，以及实际要走的步数。</li>
         <li>打开右侧「玩家第一人称视角」${kb ? '（<kbd>C</kbd>）' : ''}，白球固定在画面中心，移动时目标和障碍物会反向移动。</li>
         <li>两个小球在画面上重合，不代表它们在同一位置——转一转第四维就知道了。</li>
       </ul>
@@ -359,7 +407,7 @@ window.addEventListener('keydown', e => {
   }
   if (e.repeat) return
   const digit = /^Digit([1-5])$/.exec(e.code)
-  if (digit) return view.goPreset(PRESETS[Number(digit[1]) - 1][0])
+  if (digit) return pickPreset(PRESETS[Number(digit[1]) - 1][0])
   switch (e.code) {
     case 'Backquote':
       debugOn = !debugOn
@@ -374,6 +422,8 @@ window.addEventListener('keydown', e => {
       return setGuide(view.showGuide ? (view.guideMode === 'near' ? 'always' : 'off') : 'near')
     case 'KeyT':
       return toggle('spin')
+    case 'KeyM':
+      return toggle('dist')
     case 'KeyC':
       return toggle('center')
     case 'KeyK':
@@ -420,11 +470,19 @@ function setGuide(m: GuideMode): void {
 }
 document.querySelectorAll<HTMLButtonElement>('[data-guide]').forEach(b => (b.onclick = () => setGuide(b.dataset.guide as GuideMode)))
 
-function toggle(which: 'drag' | 'spin' | 'center' | 'labels'): void {
+function toggle(which: 'drag' | 'spin' | 'dist' | 'center' | 'labels'): void {
   const el = $(`#tg-${which}`)
   let on: boolean
   if (which === 'drag') on = view.drag4D = !view.drag4D
-  else if (which === 'spin') on = view.autoSpin = !view.autoSpin
+  else if (which === 'dist') {
+    on = showDist = !showDist
+    renderDist()
+  }
+  else if (which === 'spin') {
+    on = view.autoSpin = !view.autoSpin
+    // Spinning turns the hidden axis back into view.
+    if (on) setHidden(null, false)
+  }
   else if (which === 'center') on = view.centered = !view.centered
   else on = view.showLabels = !view.showLabels
   el.classList.toggle('on', on)
@@ -434,6 +492,7 @@ function toggle(which: 'drag' | 'spin' | 'center' | 'labels'): void {
 }
 $('#tg-drag').onclick = () => toggle('drag')
 $('#tg-spin').onclick = () => toggle('spin')
+$('#tg-dist').onclick = () => toggle('dist')
 $('#tg-center').onclick = () => toggle('center')
 $('#tg-labels').onclick = () => toggle('labels')
 $('#btn-cam').onclick = () => view.resetCamera()
@@ -451,7 +510,32 @@ labRange.addEventListener('input', () => {
     // Storage unavailable: setting just isn't remembered.
   }
 })
-document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach(b => (b.onclick = () => view.goPreset(b.dataset.preset as Preset)))
+// 藏 X/Y/Z/W are on/off switches. A 3D view can drop only one axis, so they're exclusive; switching
+// off returns to the view from before the first one was switched on. 斜视 is a plain reset.
+let hidden: Preset | null = null
+let beforeHide: Mat4 | null = null
+function setHidden(p: Preset | null, animate = true): void {
+  if (p && !hidden) beforeHide = new Float64Array(view.M)
+  if (animate) {
+    if (p) view.goPreset(p)
+    else if (hidden && beforeHide) view.goTo(beforeHide)
+  }
+  if (p && view.autoSpin) toggle('spin')
+  hidden = p
+  if (!p) beforeHide = null
+  document.querySelectorAll<HTMLButtonElement>('.toggle[data-preset]').forEach(b => {
+    const on = b.dataset.preset === p
+    b.classList.toggle('on', on)
+    b.setAttribute('aria-pressed', String(on))
+  })
+}
+function pickPreset(p: Preset): void {
+  if (p === 'oblique') {
+    setHidden(null, false)
+    view.goPreset(p)
+  } else setHidden(hidden === p ? null : p)
+}
+document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach(b => (b.onclick = () => pickPreset(b.dataset.preset as Preset)))
 $('#btn-new').onclick = () => restart()
 $('#btn-levels').onclick = () => openSelect()
 $('#btn-help').onclick = () => intro()
@@ -466,6 +550,7 @@ $('#btn-mute').onclick = () => setMuted(!muted)
 setMuted(false)
 view.onUserRotate4D = () => {
   if (view.autoSpin) toggle('spin')
+  setHidden(null, false)
 }
 
 window.addEventListener('resize', () => view.resize())
@@ -487,6 +572,7 @@ function frame(now: number): void {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
   last = now
   view.update(dt)
+  placeDist()
   if (debugOn && (dbgTimer += dt) > 0.25) {
     dbgTimer = 0
     renderDebug()

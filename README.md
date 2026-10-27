@@ -11,6 +11,8 @@ This repository contains the game project under the `4dPacMan/` directory.
 - Obstacle-based navigation using 3D cross-sections of 4D shapes
 - Chapter 3: curved, thickened Klein bottle obstacles (now playable)
 - Player-centred view (玩家第一人称视角): the white ball stays in the centre and the world moves around it
+- Hide-a-dimension switches (藏 X / 藏 Y / 藏 Z / 藏 W): turn one dimension off to see the other three as plain 3D
+- 4D distance readout (距离计算): every pink target shows its own distance from you
 - Visual guide lines and distance indicators for target collection
 - Lightweight web build with Vite and TypeScript
 - Browser play with no backend required
@@ -84,6 +86,8 @@ The game includes keyboard and pointer controls:
 - Mouse wheel to zoom
 - Move along the four axes: `A`/`D` (X), `S`/`W` (Y), `Q`/`E` (Z), `F`/`R` (W), or use the on-screen axis buttons
 - `C` or the 玩家第一人称视角 switch in the right-hand panel toggles the player-centred view
+- `M` or the 距离计算 switch shows the 4D distance to each target
+- `2`–`5` or the 藏 W / 藏 Z / 藏 Y / 藏 X switches hide one dimension; `1` (斜视) returns to the default angled view
 - Press the level/help buttons from the HUD to open the in-game menu
 
 ## Gameplay overview
@@ -113,12 +117,40 @@ npm run shots    # generate screenshots via script
 Earlier versions are kept as git tags, so they can always be checked out or compared:
 
 - `v1.0`: original upload (chapter 3 locked as "coming soon")
-- `main`: Klein bottle chapter unlocked, player-centred view added
+- `v2.0`: Klein bottle chapter unlocked, player-centred view added
+- `main` (3.0.0): hide-a-dimension switches and the 4D distance readout (see the update log below)
 
 ```bash
-git checkout v1.0       # look at the previous version
-git diff v1.0 main      # see what changed
+git checkout v2.0       # look at a previous version
+git diff v2.0 main      # see what changed since then
 ```
+
+## Update log
+
+### 3.0.0
+
+**Hide-a-dimension switches (藏 X / 藏 Y / 藏 Z / 藏 W)**
+
+- The four 藏 buttons in the right-hand panel are now on/off switches, styled like 自动 4D 旋转.
+- On: the view turns so that dimension is hidden, and you see the other three as plain 3D. Off: the view turns back to exactly where it was before.
+- Only one can be on at a time, because a 3D view can only hide one of the four dimensions. Turning on another switch swaps to it.
+- 自动 4D 旋转 and dragging to rotate in 4D bring the hidden dimension back, so they switch the 藏 switch off. Turning a 藏 switch on stops the auto-spin.
+- 斜视 stays a plain button that resets to the default angled view. Keys: `1` = 斜视, `2`–`5` = 藏 W / Z / Y / X.
+
+**4D distance readout (距离计算)**
+
+- A new 距离计算 switch, directly under 自动 4D 旋转 (or press `M`).
+- Each pink target gets its own label, updated after every move. The label shows:
+  - `d = …`: the straight-line 4D distance √(ΔX² + ΔY² + ΔZ² + ΔW²);
+  - how many steps away the target is along each axis, in the axis colours (e.g. `X−4 Y+2 Z−3 W−3`);
+  - `… 步`: the number of moves it really takes, going around obstacles (无法到达 if there is no path).
+- The nearest target's label is highlighted. Collected targets lose their label, and labels follow the targets when you rotate, zoom or use the player-centred view.
+- New `euclid4()` function in `src/space.ts`, with a unit test.
+
+### 2.0.0
+
+- Chapter 3 (克莱因瓶, Klein bottle) is playable: levels 3-1, 3-2 and 3-3.
+- New player-centred view (玩家第一人称视角, key `C`): the white ball stays in the centre and the world moves around it.
 
 ## Notes
 

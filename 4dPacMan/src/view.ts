@@ -359,10 +359,32 @@ export class View {
     }
   }
 
+  /**
+   * Where target i is drawn this frame, in CSS px of the canvas, plus its on-screen radius; null when
+   * it's collected or behind the camera.
+   */
+  targetScreen(i: number): { x: number; y: number; r: number } | null {
+    const t = this.targetViews[i]
+    if (!t || t.collected || !t.mesh.visible) return null
+    const p = t.mesh.position.clone().project(this.camera)
+    if (p.z > 1) return null
+    const c = this.renderer.domElement
+    const W = c.clientWidth || 1
+    const H = c.clientHeight || 1
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0)
+    const rim = t.mesh.position.clone().addScaledVector(right, 0.2 * t.mesh.scale.x).project(this.camera)
+    return { x: ((p.x + 1) / 2) * W, y: ((1 - p.y) / 2) * H, r: (Math.abs(rim.x - p.x) * W) / 2 }
+  }
+
   // ── 4D view rotation ────────────────────────────────────────────────
   goPreset(p: Preset): void {
+    this.goTo(preset(p))
+  }
+
+  /** Smoothly turn the 4D view to rotation `m`. */
+  goTo(m: Mat4): void {
     this.tweenFrom = new Float64Array(this.M)
-    this.tweenTo = preset(p)
+    this.tweenTo = new Float64Array(m)
     this.tweenT = 0
   }
 

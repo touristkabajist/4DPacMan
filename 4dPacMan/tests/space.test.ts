@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { apply, axisRotation, determinant, identity, lerpRotation, mul, orthonormalize, planeRotation, preset, type Mat4 } from '../src/rot4'
-import { MAX_EXTENT, inBounds, manhattan, optimalTour, randomTargets, Round, rng, type V4 } from '../src/space'
+import { MAX_EXTENT, euclid4, inBounds, manhattan, optimalTour, randomTargets, Round, rng, type V4 } from '../src/space'
 
 const isRotation = (m: Mat4) => {
   const t = mul(m, transpose(m))
@@ -53,6 +53,13 @@ describe('rot4', () => {
 })
 
 describe('space', () => {
+  it('4D straight-line distance uses all four axes', () => {
+    expect(euclid4([0, 0, 0, 0], [1, 2, 2, 4])).toBe(5)
+    expect(euclid4([3, -1, 0, 2], [3, -1, 0, 2])).toBe(0)
+    expect(euclid4([0, 0, 0, 0], [0, 0, 0, -7])).toBe(7)
+    expect(euclid4([1, 1, 1, 1], [0, 0, 0, 0])).toBe(2)
+  })
+
   it('targets are valid, distinct, off the start W', () => {
     for (let seed = 1; seed < 40; seed += 1) {
       const start: V4 = [0, 0, 0, 0]

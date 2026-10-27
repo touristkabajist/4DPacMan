@@ -57,7 +57,8 @@ kbd {
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: grid; gap: 10px;
 }
 .vp-title { font-size: 12px; color: var(--muted); letter-spacing: 0.15em; }
-.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.presets [data-preset=oblique] { grid-column: 1 / -1; justify-content: center; }
 .toggles { display: grid; gap: 6px; }
 .pill {
   padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.05);
@@ -80,6 +81,20 @@ kbd {
 .labels-off #rg-wrap { opacity: 0.4; }
 
 .gizmo { position: fixed; left: 14px; bottom: calc(64px + var(--sb)); width: 120px; height: 120px; z-index: 4; pointer-events: none; }
+/* 距离计算: one floating label per pink target */
+.dist-labels { position: fixed; inset: 0; z-index: 3; pointer-events: none; display: none; }
+.dist-labels.open { display: block; }
+.dl {
+  position: absolute; left: 0; top: 0; display: grid; gap: 1px; padding: 4px 7px; border-radius: 8px; white-space: nowrap;
+  background: rgba(10, 12, 28, 0.72); border: 1px solid rgba(255, 107, 214, 0.35); font-size: 11px; line-height: 1.25;
+}
+.dl.near { border-color: #ff6bd6; box-shadow: 0 0 10px rgba(255, 107, 214, 0.35); }
+.dl b { font-size: 14px; color: #ff9be6; font-variant-numeric: tabular-nums; }
+.dl b::before { content: "d = "; font-weight: 400; font-size: 11px; color: var(--muted); }
+.dl span { display: flex; gap: 5px; font-family: ui-monospace, Menlo, monospace; }
+.dl i { font-style: normal; font-weight: 700; }
+.dl small { color: var(--muted); }
+.dl[hidden] { display: none; }
 
 .toast {
   position: fixed; left: 50%; top: calc(70px + var(--st)); transform: translate(-50%, -6px); z-index: 6;

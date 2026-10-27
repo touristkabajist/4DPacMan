@@ -18,6 +18,11 @@ export function manhattan(a: V4, b: V4): number {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) + Math.abs(a[3] - b[3])
 }
 
+/** Straight-line 4D distance: √(Δx² + Δy² + Δz² + Δw²). */
+export function euclid4(a: V4, b: V4): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3])
+}
+
 export function same(a: V4, b: V4): boolean {
   return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]
 }

@@ -70,9 +70,30 @@ await session('desktop', { viewport: { width: 1440, height: 900 } }, async page 
   if (before === after) errors.push('right-drag did not rotate the 4D view')
   await page.screenshot({ path: 'shots/d4-rot4d.png' })
 
+  // 藏 X/Y/Z/W are exclusive on/off switches; off returns to the view from before.
+  const viewM = () => page.evaluate(() => Array.from(window.__game.view.M))
+  const settled = () => page.waitForFunction(() => !window.__game.view.tweenTo, null, { timeout: 8000 }).catch(() => {})
+  const pressed = () => page.$$eval('.toggle[data-preset]', els => els.filter(e => e.getAttribute('aria-pressed') === 'true').map(e => e.dataset.preset))
+  const m0 = await viewM()
   await page.click('[data-preset=hideW]')
-  await wait(900)
+  await settled()
+  const mW = await viewM()
+  if (mW.slice(12).join() !== '0,0,0,1' && mW.slice(12).join() !== '0,0,0,-1') errors.push('藏 W did not hide W: ' + mW)
+  if ((await pressed()).join() !== 'hideW') errors.push('藏 W switch not on: ' + (await pressed()))
   await page.screenshot({ path: 'shots/d5-hideW.png' })
+  await page.click('[data-preset=hideX]')
+  await settled()
+  if ((await pressed()).join() !== 'hideX') errors.push('hide switches not exclusive: ' + (await pressed()))
+  await page.click('[data-preset=hideX]')
+  await settled()
+  if ((await pressed()).length) errors.push('藏 X did not switch off')
+  if ((await viewM()).some((v, i) => Math.abs(v - m0[i]) > 1e-3)) errors.push('switching off did not restore the previous view')
+  await page.keyboard.press('Digit2')
+  await settled()
+  if ((await pressed()).join() !== 'hideW') errors.push('key 2 did not switch 藏 W on')
+  await page.click('#tg-spin')
+  if ((await pressed()).length) errors.push('auto-spin did not switch 藏 W off')
+  await page.click('#tg-spin')
   await page.click('[data-preset=oblique]')
   await page.click('#btn-cam')
   await wait(900)
@@ -229,6 +250,34 @@ await session('centered', { viewport: { width: 1440, height: 900 } }, async page
   await centred(false)
   const back = await look()
   if (Math.hypot(...back.player) < 1e-3 && Math.hypot(...off.player) > 1e-3) errors.push('C did not turn the centred view off')
+})
+
+// 距离计算: one label per pink ball with its own 4D distance, updated after every move.
+await session('distance', { viewport: { width: 1440, height: 900 } }, async page => {
+  await page.goto(URL + '?level=1-3&unlock&play')
+  await wait(800)
+  if (await page.isVisible('#dist-labels')) errors.push('distance labels visible before switching on')
+  await page.click('#tg-dist')
+  await wait(300)
+  const check = async tag => {
+    const s = await state(page)
+    const labels = await page.$$eval('#dist-labels .dl', els => els.map(e => ({ d: Number(e.querySelector('b').textContent), hidden: e.hidden })))
+    if (labels.length !== s.remaining) errors.push(`${tag}: ${labels.length} distance labels for ${s.remaining} targets`)
+    const want = s.targets.map(t => Math.hypot(...t.map((v, a) => v - s.pos[a])))
+    labels.forEach((l, i) => Math.abs(l.d - want[i]) > 0.006 && errors.push(`${tag}: label ${i} shows ${l.d}, expected ${want[i].toFixed(2)}`))
+    if (labels.every(l => l.hidden)) errors.push(`${tag}: no distance label on screen`)
+  }
+  await check('start')
+  await page.screenshot({ path: 'shots/e1-distance.png' })
+  for (const k of ['KeyD', 'KeyD', 'KeyR', 'KeyW']) {
+    await page.keyboard.press(k)
+    await wait(40)
+  }
+  await wait(400)
+  await check('after moving')
+  await page.screenshot({ path: 'shots/e2-distance-moved.png' })
+  await page.keyboard.press('KeyM')
+  if (await page.isVisible('#dist-labels')) errors.push('M did not switch the distance labels off')
 })
 
 await session('mobile-levels', { ...devices['iPhone 13'] }, async page => {
